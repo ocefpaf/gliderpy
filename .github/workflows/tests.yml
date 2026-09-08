@@ -1,4 +1,4 @@
-name: Full Tests
+name: Tests
 
 # no permissions by default
 permissions: {}
@@ -10,11 +10,26 @@ on:
 
 jobs:
   run:
+    name: "Tests (${{ matrix.os }} ${{ matrix.python-version }} mpl=${{ matrix.mpl }})"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [ "3.11", "3.12", "3.13", "3.14" ]
-        os: [ windows-latest, ubuntu-latest, macos-latest ]
+        python-version: [ "3.11", "3.14" ]
+        os: [ ubuntu-latest ]
+        mpl: [ false ]
+        include:
+          - python-version: "3.11"
+            os: ubuntu-latest
+            mpl: true
+          - os: windows-latest
+            python-version: "3.14"
+            mpl: false
+          - os: macos-latest
+            python-version: "3.14"
+            mpl: false
+          - os: macos-15-intel
+            python-version: "3.14"
+            mpl: false
       fail-fast: false
     defaults:
       run:
@@ -31,12 +46,15 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Core Tests
+    # Run full tests only on oldest Python to avoid re-writing the the mpl images every new mpl release.
+    - name: Test images
+      if: matrix.mpl == true
+      run: |
+        python -m pip install .[test,plotting]
+        python -m pytest -rxs --cov=gliderpy --mpl tests
+
+    - name: Tests
+      if: matrix.mpl == false
       run: |
         python -m pip install .[test]
-        python -m pytest -rxs --cov=gliderpy --mpl tests/test_fetchers.py
-
-    - name: Full Tests
-      run: |
-        python -m pip install .[test,plotting,docs]
-        python -m pytest -rxs --cov=gliderpy --mpl tests
+        python -m pytest -rxs --mpl tests/test_fetchers.py
